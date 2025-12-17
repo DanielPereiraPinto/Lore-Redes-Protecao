@@ -12,7 +12,7 @@ class Carousel {
     this.nextBtn = this.root.querySelector(".carousel__nav--next");
 
     // options
-    this.gap = options.gap || 0.7; // rem-ish, CSS handles actual gap
+    this.gap = options.gap || 0.8; // rem-ish, CSS handles actual gap
     this.index = 0;
     // responsive breakpoints
     this.breakpoints = options.breakpoints || [
@@ -27,6 +27,7 @@ class Carousel {
     this.bindHandlers();
     this.setup();
     this.addEventListeners();
+    this.currentOffset = 0;
   }
 
   bindHandlers() {
@@ -68,45 +69,64 @@ class Carousel {
   }
 
   updateLayout() {
-    // compute slide width as percentage
-    const trackWidth =
-      this.track.clientWidth ||
-      this.root.querySelector(".carousel__viewport").clientWidth;
-    const slidesToShow = this.slidesToShow || 1;
-    const slideWidthPct = 100 / slidesToShow;
+    const viewport = this.root.querySelector(".carousel__viewport");
 
-    // apply inline style to slides so they can shrink/grow responsively
+    this.viewportWidth = viewport.clientWidth;
+    this.slideWidth = this.viewportWidth / this.slidesToShow;
+
     this.slides.forEach((slide) => {
-      slide.style.flex = `0 0 ${slideWidthPct}%`;
-      slide.style.maxWidth = `${slideWidthPct}%`;
+      slide.style.flex = `0 0 ${this.slideWidth}px`;
+      slide.style.maxWidth = `${this.slideWidth}px`;
     });
 
-    // reposition to current index (make sure index is valid)
-    this.clampIndex();
+    // cálculo correto do limite
+    const totalSlides = this.slides.length;
+    const totalTrackWidth = totalSlides * this.slideWidth;
+
+    this.maxOffset = Math.max(0, totalTrackWidth - this.viewportWidth);
+
+    if (this.currentOffset > this.maxOffset) {
+      this.currentOffset = this.maxOffset;
+    }
+
     this.updateTrackPosition();
   }
 
   clampIndex() {
-    const maxIndex = Math.max(0, this.slides.length - this.slidesToShow);
-    if (this.index > maxIndex) this.index = maxIndex;
+    const viewport = this.root.querySelector(".carousel__viewport");
+    const slideWidth = viewport.clientWidth / this.slidesToShow;
+    const maxOffset = this.track.scrollWidth - viewport.clientWidth;
+
+    const currentOffset = this.index * slideWidth;
+
+    if (currentOffset > maxOffset) {
+      this.index = Math.floor(maxOffset / slideWidth);
+    }
+
     if (this.index < 0) this.index = 0;
   }
 
   updateTrackPosition() {
-    // Move track using transform
-    const slideWidthPct = 100 / this.slidesToShow;
-    const offsetPct = -(this.index * slideWidthPct);
-    this.track.style.transform = `translateX(${offsetPct}%)`;
+    this.track.style.transform = `translateX(-${this.currentOffset}px)`;
   }
 
   onPrev() {
-    this.index = Math.max(0, this.index - 1);
+    this.currentOffset -= this.slideWidth;
+
+    if (this.currentOffset < 0) {
+      this.currentOffset = 0;
+    }
+
     this.updateTrackPosition();
   }
 
   onNext() {
-    const maxIndex = Math.max(0, this.slides.length - this.slidesToShow);
-    this.index = Math.min(maxIndex, this.index + 1);
+    this.currentOffset += this.slideWidth;
+
+    if (this.currentOffset > this.maxOffset) {
+      this.currentOffset = this.maxOffset;
+    }
+
     this.updateTrackPosition();
   }
 
